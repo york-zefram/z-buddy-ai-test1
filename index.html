@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <link rel="manifest" href="manifest.json">
+  <title>Z-BUDDY</title>
+  <style>
+    :root {
+      --bg: #000000;
+      --accent: #00f3ff;
+      --text: #f2f2f2;
+      --muted: #8b8b8b;
+      --line: #1f1f1f;
+      --header-h: 5vh;
+      --ad-h: 70px;
+      --max-w: 600px;
+      --alert: #ff4444;
+      --log-bg: #1a1a1a;
+    }
+
+    @media (min-width: 768px) { :root { --max-w: 85%; } }
+    @media (min-width: 1024px) { :root { --max-w: 1200px; } }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    
+    body, html { 
+      margin: 0; padding: 0; 
+      background: #000; 
+      color: var(--text); 
+      font-family: Inter, sans-serif; 
+      height: 100%; 
+      overflow: hidden; 
+    }
+
+    /* --- 0. 起動・選択画面 --- */
+    #launcherScreen {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: #000;
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.5s ease, visibility 0.5s;
+    }
+    .launcher-title {
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.4em;
+      margin-bottom: 40px;
+    }
+    .ai-selector-group {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      width: 80%;
+      max-width: 300px;
+    }
+    .ai-select-btn {
+      width: 100%;
+      padding: 18px;
+      background: none;
+      border: 1px solid #333;
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 0.9rem;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-align: center;
+    }
+    .ai-select-btn:active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(0, 243, 255, 0.05);
+    }
+
+    /* --- 1. ヘッダー --- */
+    .header {
+      height: var(--header-h);
+      width: 100%;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-bottom: 1px solid var(--line);
+      cursor: pointer;
+      z-index: 1500;
+      position: relative;
+    }
+    .header h1 {
+      margin: 0; font-size: 1rem; letter-spacing: 0.3em; color: var(--accent); font-weight: 500;
+    }
+
+    /* --- 2. 広告エリア --- */
+    .fixed-footer-ad {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: var(--ad-h);
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-top: 1px solid var(--line);
+      z-index: 1500;
+    }
+    .ad-placeholder {
+      width: 320px; height: 50px; background: #FF5722; color: #fff; font-size: 0.75rem; font-weight: bold;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* --- 3. カテゴリーコンテナ (引き出し) --- */
+    .category-container {
+      position: absolute;
+      top: var(--header-h);
+      left: 0;
+      width: 100%;
+      height: 0; 
+      background: var(--bg);
+      overflow-y: auto; 
+      transition: height 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      scrollbar-width: none;
+    }
+    .category-container::-webkit-scrollbar { display: none; }
+
+    .category-inner {
+      width: 100%;
+      max-width: var(--max-w);
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 2vh; 
+    }
+
+    .category-header { 
+      display: flex; align-items: center; width: 100%; border-bottom: 1px solid var(--line); flex-shrink: 0; 
+      position: sticky; top: 0; background: var(--bg); z-index: 10;
+    }
+    .header-left-blank { width: 10%; }
+    .tabs { 
+      width: 80%; display: flex; gap: 16px; overflow-x: auto; scrollbar-width: none; padding: 10px 0; justify-content: center; 
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+    .header-settings { width: 10%; display: flex; justify-content: center; align-items: center; }
+    .tab { font-size: 0.7rem; color: var(--muted); cursor: pointer; white-space: nowrap; letter-spacing: 0.1em; position: relative; line-height: 1.2; }
+    .tab.active { color: var(--accent); }
+    .tab.active::after { content: ''; position: absolute; bottom: -11px; left: 0; width: 100%; height: 2px; background: var(--accent); }
+    .settings-btn { background: none; border: none; padding: 8px; cursor: pointer; display: flex; align-items: center; }
+    .settings-btn svg { width: 22px; height: 22px; fill: var(--text); }
+    
+    .settings-area { flex: 1; }
+    
+    .StatusContainer, .FilterContainer { padding: 0.3vh 4vw; border-bottom: 1px solid var(--line); }
+    .status-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2vh; }
+    .label-main { font-size: 0.75rem; color: var(--muted); letter-spacing: 0.1em; line-height: 1.2; }
+    .label-sub { font-size: 0.65rem; color: var(--muted); letter-spacing: 0.05em; line-height: 1.2; }
+    .btn-group { display: flex; justify-content: space-between; gap: 1.2vw; margin-bottom: 0.3vh; }
+    .status-btn {
+      flex: 1; height: 3.2vh; min-height: 26px; background: none; border: 1px solid #333333; border-radius: 999px;
+      color: #666666; font-size: 0.7rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s; white-space: nowrap; line-height: 1;
+    }
+    .status-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0, 243, 255, 0.05); }
+
+    .filter-section { margin-bottom: 0.3vh; }
+    .filter-label-top { font-size: 0.7rem; color: var(--muted); margin-bottom: 0.2vh; display: block; text-align: center; cursor: pointer; line-height: 1.2; }
+    .filter-label-top.important-active { color: var(--alert); }
+    .filter-input-capsule { width: 100%; height: 3.5vh; min-height: 28px; background: #000; border: 1px solid #333; border-radius: 999px; color: var(--text); padding: 0 15px; font-size: 0.8rem; outline: none; margin-bottom: 0.3vh; line-height: 1; }
+    .filter-input-capsule::placeholder { color: #444; font-size: 0.7rem; }
+    .control-unit { display: flex; flex-direction: column; align-items: center; flex: 1; }
+    .control-row { display: flex; justify-content: space-between; gap: 1.2vw; width: 100%; }
+
+    .LogContainer { padding: 0.3vh 4vw; display: flex; flex-direction: column; gap: 4px; }
+    .log-row { width: 100%; min-height: 26px; background: var(--log-bg); border-radius: 6px; display: flex; align-items: center; padding: 0 12px; font-size: 0.7rem; color: #999; line-height: 1.2; }
+    .log-label-now { color: var(--accent); margin-right: 8px; flex-shrink: 0; }
+    .log-label-important { color: var(--alert); margin-right: 8px; flex-shrink: 0; }
+    #display-now, #display-important { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .input-action-row { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 2px; }
+    .main-text-input { 
+      flex: 1; height: 50px; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; 
+      color: #fff; padding: 8px 12px; font-size: 0.9rem; outline: none; resize: none; line-height: 1.3;
+    }
+    .play-btn {
+      width: 40px; height: 40px; background: radial-gradient(circle, #00f3ff 0%, #0077ff 100%);
+      border: none; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; box-shadow: 0 0 15px rgba(0, 243, 255, 0.3); flex-shrink: 0;
+    }
+
+    /* --- 4. 背景レイヤー --- */
+    .background-ai-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      background: #000;
+    }
+    #aiFrame {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #000;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div id="launcherScreen">
+    <div class="launcher-title">SELECT YOUR BUDDY</div>
+    <div class="ai-selector-group">
+      <button class="ai-select-btn" onclick="startApp('Gemini', 'https://gemini.google.com/')">Gemini</button>
+      <button class="ai-select-btn" onclick="startApp('ChatGPT', 'https://chatgpt.com/')">ChatGPT</button>
+      <button class="ai-select-btn" onclick="startApp('Claude', 'https://claude.ai/')">Claude</button>
+    </div>
+  </div>
+
+  <header class="header" onclick="toggleContainer()">
+    <h1 id="headerTitle">Z-BUDDY</h1>
+  </header>
+
+  <div id="categoryContainer" class="category-container">
+    <div class="category-inner">
+      <div class="category-header">
+        <div class="header-left-blank"></div> 
+        <nav class="tabs" id="mainTabs"> 
+          <div class="tab active">LIFE</div>
+          <div class="tab">WORK</div>
+          <div class="tab">LEARN</div>
+          <div class="tab">DEVELOP</div>
+          <div class="tab">CREATE</div>
+        </nav>
+        <div class="header-settings"> 
+          <button class="settings-btn"><svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.82,11.68,4.82,12c0,0.32,0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg></button>
+        </div>
+      </div>
+      <div class="settings-area">
+        <div class="StatusContainer">
+          <div class="status-label-row"><span class="label-main">性格</span><span class="label-sub">SINGLE SELECT</span></div>
+          <div class="btn-group" data-type="single" id="personalityGroup">
+            <button class="status-btn">優しい</button><button class="status-btn">素直</button><button class="status-btn">細かい</button><button class="status-btn">現実的</button><button class="status-btn">発想型</button>
+          </div>
+          <div class="status-label-row"><span class="label-main">応対モード</span><span class="label-sub">SINGLE SELECT</span></div>
+          <div class="btn-group" data-type="single" id="responseModeGroup">
+            <button class="status-btn">気づき重視</button><button class="status-btn">結論先</button><button class="status-btn">寄り添い先</button><button class="status-btn">実行優先</button><button class="status-btn">比較整理</button>
+          </div>
+        </div>
+
+        <div class="FilterContainer">
+          <div class="filter-section">
+            <div class="control-row">
+              <div class="control-unit" style="flex: 1.5;"><span class="filter-label-top" onclick="handleLabelClick(this)">プロジェクト名指定</span><input type="text" class="filter-input-capsule" oninput="updateLogDisplays()" style="margin-bottom: 0;"></div>
+              <div class="control-unit"><span class="filter-label-top" onclick="handleLabelClick(this)">会話脱線防止</span><div class="btn-group" data-type="toggle" style="width: 100%; margin-bottom: 0;"><button class="status-btn">OFF</button></div></div>
+              <div class="control-unit"><span class="filter-label-top" onclick="handleLabelClick(this)">過去会話</span><div class="btn-group" data-type="toggle" style="width: 100%; margin-bottom: 0;"><button class="status-btn">OFF</button></div></div>
+              <div class="control-unit"><span class="filter-label-top" onclick="handleLabelClick(this)">一門一答</span><div class="btn-group" data-type="toggle" style="width: 100%; margin-bottom: 0;"><button class="status-btn">OFF</button></div></div>
+            </div>
+          </div>
+          <div class="filter-section">
+            <div class="control-row">
+              <div class="control-unit"><span class="filter-label-top" onclick="handleLabelClick(this)">提案数</span><input type="text" class="filter-input-capsule" oninput="updateLogDisplays()" placeholder="数を入力" style="margin-bottom: 0; text-align: center;"></div>
+              <div class="control-unit"><span class="filter-label-top" onclick="handleLabelClick(this)">翻訳</span><input type="text" class="filter-input-capsule" oninput="updateLogDisplays()" placeholder="言語を入力" style="margin-bottom: 0; text-align: center;"></div>
+              <div class="control-unit"><span class="filter-label-top" onclick="handleLabelClick(this)">時代</span><input type="text" class="filter-input-capsule" oninput="updateLogDisplays()" placeholder="2010 — 2026" style="margin-bottom: 0; text-align: center;"></div>
+              <div class="control-unit"><span class="filter-label-top" onclick="handleLabelClick(this)">要約</span><div class="btn-group" data-type="toggle" style="width: 100%; margin-bottom: 0;"><button class="status-btn">OFF</button></div></div>
+              <div class="control-unit"><span class="filter-label-top" onclick="handleLabelClick(this)">画像依頼</span><div class="btn-group" data-type="toggle" style="width: 100%; margin-bottom: 0;"><button class="status-btn">OFF</button></div></div>
+              <div class="control-unit"><span class="filter-label-top" onclick="handleLabelClick(this)">図解依頼</span><div class="btn-group" data-type="toggle" style="width: 100%; margin-bottom: 0;"><button class="status-btn">OFF</button></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="LogContainer">
+          <div class="log-row"><span class="log-label-now">現在：</span><span id="display-now"></span></div>
+          <div class="log-row"><span class="log-label-important">重要：</span><span id="display-important"></span></div>
+          <div class="input-action-row">
+            <textarea id="mainTextInput" class="main-text-input" placeholder="追加指示・思考はこちら"></textarea>
+            <button class="play-btn" onclick="executeCombinedAction()">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <main class="background-ai-layer">
+    <iframe id="aiFrame" src="about:blank"></iframe>
+  </main>
+
+  <footer class="fixed-footer-ad"><div class="ad-placeholder">GOOGLE 広告エリア 320X50</div></footer>
+
+  <script>
+    const personalities = {
+      'LIFE': ['優しい', '素直', '細かい', '現実的', '発想型'],
+      'WORK': ['忠実', '論理的', '率直', '丁寧', '戦略的'],
+      'LEARN': ['伴走型', 'スパルタ', '例え上手', '肯定的', '要点重視'],
+      'DEVELOP': ['厳格', '効率的', '保守的', '解説型', '革新的'],
+      'CREATE': ['独創的', '詩的', '批評的', '触発型', '変幻自在']
+    };
+
+    const responseModes = {
+      'LIFE': ['気づき重視', '結論先', '寄り添い先', '実行優先', '比較整理'],
+      'WORK': ['結論先', '比較整理', '要約重視', 'アクション案', '一問一答'],
+      'LEARN': ['段階解説', 'クイズ形式', 'アナロジー', '誤謬指摘', 'マインドマップ'],
+      'DEVELOP': ['コードのみ', 'リファクタ', 'デバッグ特化', 'ドキュメント', 'モダン化'],
+      'CREATE': ['壁打ち', 'プロット案', '文体模写', '逆張り', '多角提案']
+    };
+
+    let selectedAI = "";
+
+    // --- 以下の startApp 関数のみを差し替えるか、ファイル全体を更新してください ---
+
+    function startApp(aiName, url) {
+      selectedAI = aiName;
+      document.getElementById('headerTitle').textContent = `Z-BUDDY (${aiName})`;
+      
+      // 【重要】直接URLを叩くのではなく、自分のサーバーのプロキシ(/proxy/...)経由に変更します
+      // これにより、server.js で書いた「検問（ヘッダー削除）」を通るようになります
+      const proxyUrl = `/proxy/${aiName.toLowerCase()}`;
+      document.getElementById('aiFrame').src = proxyUrl;
+      
+      const launcher = document.getElementById('launcherScreen');
+      launcher.style.opacity = '0';
+      setTimeout(() => {
+        launcher.style.visibility = 'hidden';
+        updateLogDisplays();
+      }, 500);
+    }
+
+    function toggleContainer() {
+      const container = document.getElementById('categoryContainer');
+      const inner = container.querySelector('.category-inner');
+      if (container.style.height === '0px' || container.style.height === '') {
+        container.style.height = inner.scrollHeight + 'px';
+        container.style.borderBottom = '1px solid var(--line)';
+      } else {
+        container.style.height = '0px';
+        container.style.borderBottom = 'none';
+      }
+    }
+
+    function handleLabelClick(labelElement) {
+      labelElement.classList.toggle('important-active');
+      updateLogDisplays();
+    }
+
+    function updateLogDisplays() {
+      const nowEl = document.getElementById('display-now');
+      const impEl = document.getElementById('display-important');
+      let nowList = [];
+      let impList = [];
+
+      if (selectedAI) nowList.push(selectedAI);
+
+      document.querySelectorAll('.control-unit').forEach(unit => {
+        const label = unit.querySelector('.filter-label-top');
+        const input = unit.querySelector('.filter-input-capsule');
+        const btn = unit.querySelector('.status-btn');
+        let text = "";
+
+        if (input && input.value.trim() !== "") {
+          text = `${label.textContent}: ${input.value}`;
+          nowList.push(text);
+          if (label.classList.contains('important-active')) impList.push(text);
+        } else if (btn && btn.classList.contains('active')) {
+          text = label ? label.textContent : btn.textContent;
+          nowList.push(text);
+          if (label && label.classList.contains('important-active')) impList.push(text);
+        }
+      });
+
+      document.querySelectorAll('.StatusContainer .status-btn.active').forEach(btn => {
+        nowList.push(btn.textContent);
+      });
+
+      nowEl.textContent = nowList.join(' / ');
+      impEl.textContent = impList.join(' / ');
+    }
+
+    function executeCombinedAction() {
+      const inputElement = document.getElementById('mainTextInput');
+      if (!inputElement.value.trim()) return;
+      inputElement.value = "";
+      toggleContainer();
+    }
+
+    document.getElementById('mainTabs').addEventListener('click', (e) => {
+      const tab = e.target.closest('.tab');
+      if (!tab) return;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const modeName = tab.textContent;
+      const pBtns = document.getElementById('personalityGroup').querySelectorAll('.status-btn');
+      const rBtns = document.getElementById('responseModeGroup').querySelectorAll('.status-btn');
+      pBtns.forEach((btn, i) => { btn.textContent = personalities[modeName][i]; btn.classList.remove('active'); });
+      rBtns.forEach((btn, i) => { btn.textContent = responseModes[modeName][i]; btn.classList.remove('active'); });
+      updateLogDisplays();
+    });
+
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.status-btn');
+      if (!btn) return;
+      const group = btn.closest('.btn-group');
+      if (!group) return;
+      const type = group.getAttribute('data-type');
+      if (type === 'single') {
+        group.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      } else if (type === 'toggle') {
+        btn.classList.toggle('active');
+        btn.textContent = btn.classList.contains('active') ? 'ON' : 'OFF';
+      }
+      updateLogDisplays();
+    });
+
+    updateLogDisplays();
+  </script>
+</body>
+</html>
